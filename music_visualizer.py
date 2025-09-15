@@ -4,99 +4,108 @@ import librosa
 import numpy as np
 import sys
 
+import matplotlib
+matplotlib.use('Agg')  # Use a non-interactive backend for matplotlib
 #Imports for computing a spectrogram
 import matplotlib.pyplot as plt
 import librosa.display
 
 
-#Define config variables
-WINDOW_WIDTH = 800
-WINDOW_HEIGHT = 600
-NUM_BARS = 80
-SMOOTHING_FACTOR = 0.3
-FPS = 60
-AUDIO_FILE = "../music/SmashFull.mp3"
-OUTPUT_SPECTROGRAM_FILE = "spectrogram.png"
+def run_visualizer(gui_object):
+    #Define config variables
+    WINDOW_WIDTH = 800
+    WINDOW_HEIGHT = 600
+    NUM_BARS = 80
+    BAR_COLOR = gui_object.config["bar_color"]
+    SPECTROGRAM_COLOR = gui_object.config["color_map"].get()
+    SMOOTHING_FACTOR = 0.3
+    FPS = 60
+    AUDIO_FILE = gui_object.config["audio_file"]
+    OUTPUT_SPECTROGRAM_FILE = "spectrogram.png"
 
-# Load and play audio asynchronously with librosa
-signal, sr = librosa.load(AUDIO_FILE, sr=None, mono=True)
-#take an absolute valuef the short-time fourier transform of the signal
-s = np.abs(librosa.stft(signal, n_fft=2048, hop_length=512))
+    # Load and play audio asynchronously with librosa
+    signal, sr = librosa.load(AUDIO_FILE, sr=None, mono=True)
+    #take an absolute valuef the short-time fourier transform of the signal
+    s = np.abs(librosa.stft(signal, n_fft=2048, hop_length=512))
 
-#convert to decibels
-s_db = librosa.amplitude_to_db(s, ref=np.max)
+    #convert to decibels
+    s_db = librosa.amplitude_to_db(s, ref=np.max)
 
-#Since librosa outputs negative dB values, need to shift them over so the quiestest parts are 0 dB
-s_db = s_db - s_db.min()
+    #Since librosa outputs negative dB values, need to shift them over so the quiestest parts are 0 dB
+    s_db = s_db - s_db.min()
+    if gui_object.config["show_spectrogram"].get():
+        #plot spectrogram and save to disk
+        plt.figure(figsize=(10, 6))
+        #Creates a spectrogram with a maagma color map
+        #Need to reverse the color map so that louder parts are brighter
+        librosa.display.specshow(s_db, sr=sr, x_axis='time', y_axis='log', cmap=SPECTROGRAM_COLOR)
+        plt.colorbar(format='%+2.0f dB')
+        plt.title('Spectrogram')
+        plt.tight_layout()
+        #Get the name of the file for naming the spectrogram image
+        name = AUDIO_FILE.split('.')[0]
+        plt.savefig(OUTPUT_SPECTROGRAM_FILE)
+        plt.close()
 
-#plot spectrogram and save to disk
-plt.figure(figsize=(10, 6))
-#Creates a spectrogram with a maagma color map
-#Need to reverse the color map so that louder parts are brighter
-librosa.display.specshow(s_db, sr=sr, x_axis='time', y_axis='log', cmap='magma')
-plt.colorbar(format='%+2.0f dB')
-plt.title('Spectrogram')
-plt.tight_layout()
+    signal = (signal * 32767).astype(np.int16)  # Convert to int16 for pygame
 
 
-plt.savefig(OUTPUT_SPECTROGRAM_FILE)
-plt.close()
+    # Initialize Pygame mixer and play audio
+    pg.mixer.init(frequency=sr)
+    pg.mixer.music.load(AUDIO_FILE)
+    pg.mixer.music.play()
 
-signal = (signal * 32767).astype(np.int16)  # Convert to int16 for pygame
+    #Initialize Pygame display
+    pg.init()
+    screen = pg.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+    pg.display.set_caption("Music Visualizer")
+    clock = pg.time.Clock()
 
-# Initialize Pygame mixer and play audio
-pg.mixer.init(frequency=sr)
-sound = pg.mixer.Sound(AUDIO_FILE)
-sound.play()
+    chunk_size = len(signal) // (NUM_BARS * 1000)
+    bar_heights_prev = np.zeros(NUM_BARS)
 
-#Initialize Pygame display
-pg.init()
-screen = pg.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-pg.display.set_caption("Music Visualizer")
-clock = pg.time.Clock()
+    running = True
+    frame_index=0
 
-chunk_size = len(signal) // (NUM_BARS * 1000)
-bar_heights_prev = np.zeros(NUM_BARS)
+    while running:
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                running = False
 
-running = True
-frame_index=0
-
-while running:
-    for event in pg.event.get():
-        if event.type == pg.QUIT:
+        # Check if music is still playing or we've reached the end of the signal
+        if not pg.mixer.music.get_busy() or frame_index >= len(signal):
             running = False
-    #clear screen
-    screen.fill((0, 0, 0))
+            break
 
-    #get frome for fft
-    start = frame_index
-    end = frame_index + chunk_size
-    if end > len(signal):
-        break #end of song
+        #clear screen
+        screen.fill((0, 0, 0))
 
-    frame = signal[start:end]
-    fft = np.fft.fft(frame)
-    mag= np.abs(fft[:NUM_BARS])
-    max_mag = np.max(mag)
-    if max_mag == 0:
-        mag = np.zeros_like(mag)
-    else:
-        mag = mag / max_mag  # Normalize magnitudes
+        #get frame for fft
+        start = frame_index
+        end = frame_index + chunk_size
+        frame = signal[start:end]
+        fft = np.fft.fft(frame)
+        mag= np.abs(fft[:NUM_BARS])
+        max_mag = np.max(mag)
+        if max_mag == 0:
+            mag = np.zeros_like(mag)
+        else:
+            mag = mag / max_mag  # Normalize magnitudes
 
-    #smooth bar heights
-    bar_heights = SMOOTHING_FACTOR * mag + (1 - SMOOTHING_FACTOR) * bar_heights_prev
-    bar_heights_prev = bar_heights
-    bar_heights_pixels = (bar_heights * WINDOW_HEIGHT).astype(int)
+        #smooth bar heights
+        bar_heights = SMOOTHING_FACTOR * mag + (1 - SMOOTHING_FACTOR) * bar_heights_prev
+        bar_heights_prev = bar_heights
+        bar_heights_pixels = (bar_heights * WINDOW_HEIGHT).astype(int)
 
-    #draw bars
-    bar_width = WINDOW_WIDTH / NUM_BARS
-    for i, h in enumerate(bar_heights_pixels):
-        x = int(i * bar_width)
-        y = WINDOW_HEIGHT - h
-        color = (int(255 * bar_heights[i]), 50, 255 - int(255 * bar_heights[i])) #color gradient
-        draw.rect(screen, color, (x,y,int(bar_width*0.8) ,h))
-    pg.display.flip()
-    clock.tick(FPS)
-    frame_index += chunk_size
-pg.quit()
-sys.exit()
+        #draw bars
+        bar_width = WINDOW_WIDTH / NUM_BARS
+        for i, h in enumerate(bar_heights_pixels):
+            x = int(i * bar_width)
+            y = WINDOW_HEIGHT - h
+            color = tuple(int(BAR_COLOR.lstrip('#')[j:j+2], 16) for j in (0, 2, 4))
+            draw.rect(screen, color, (x,y,int(bar_width*0.8) ,h))
+        pg.display.flip()
+        clock.tick(FPS)
+        frame_index += chunk_size
+
+    pg.quit()
