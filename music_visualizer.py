@@ -16,7 +16,8 @@ def run_visualizer(gui_object):
     WINDOW_WIDTH = 800
     WINDOW_HEIGHT = 600
     NUM_BARS = 80
-    BAR_COLOR = gui_object.config["bar_color"]
+    BAR_COLOR_LOW = gui_object.config["bar_color_low"]
+    BAR_COLOR_HIGH = gui_object.config["bar_color_high"]
     SPECTROGRAM_COLOR = gui_object.config["color_map"].get()
     SMOOTHING_FACTOR = 0.3
     FPS = 60
@@ -102,10 +103,17 @@ def run_visualizer(gui_object):
         for i, h in enumerate(bar_heights_pixels):
             x = int(i * bar_width)
             y = WINDOW_HEIGHT - h
-            color = tuple(int(BAR_COLOR.lstrip('#')[j:j+2], 16) for j in (0, 2, 4))
+            color = interpolate_color(BAR_COLOR_LOW, BAR_COLOR_HIGH, bar_heights[i])
             draw.rect(screen, color, (x,y,int(bar_width*0.8) ,h))
         pg.display.flip()
         clock.tick(FPS)
         frame_index += chunk_size
 
     pg.quit()
+
+#Interpolate between two colors between 0 and 1 (where 0 is no decibels and 1 is the maximum decibel level)
+def interpolate_color(color1, color2, t):
+    # color1 and color2 are hex strings, t is between 0 and 1
+    c1 = tuple(int(color1.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
+    c2 = tuple(int(color2.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
+    return tuple(int(c1[j] + (c2[j] - c1[j]) * t) for j in range(3))

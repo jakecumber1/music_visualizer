@@ -24,7 +24,8 @@ class music_visualizer_gui:
             "audio_file": None,
             "show_spectrogram": tk.BooleanVar(value=True),
             "color_map": tk.StringVar(value="magma"),
-            "bar_color": "#FF00FF"
+            "bar_color_low": "#FF00FF",
+            "bar_color_high": "#FFFF00"
         }
         self.btn_file = tk.Button(self.root, text="Choose Audio File", command=self.choose_file)
         self.btn_file.pack(pady=5)
@@ -38,11 +39,16 @@ class music_visualizer_gui:
         self.chk_spectrogram = tk.Checkbutton(self.root, text="Generate Spectrogram", variable=self.config["show_spectrogram"])
         self.chk_spectrogram.pack(pady=5)
 
-        self.btn_color = tk.Button(self.root, text="Choose Bar Color", command=self.choose_color)
-        self.btn_color.pack(pady=5)
-        self.lbl_color = tk.Label(self.root, text=self.config["bar_color"])
-        self.lbl_color.pack(pady=5)
+        self.btn_color_low = tk.Button(self.root, text="Choose Low Decibel Bar Color", command=self.choose_color_low)
+        self.btn_color_low.pack(pady=5)
+        self.lbl_color_low = tk.Label(self.root, text=self.config["bar_color_low"])
+        self.lbl_color_low.pack(pady=5)
         
+        self.btn_color_high = tk.Button(self.root, text="Choose High Decibel Bar Color", command=self.choose_color_high)
+        self.btn_color_high.pack(pady=5)
+        self.lbl_color_high = tk.Label(self.root, text=self.config["bar_color_high"])
+        self.lbl_color_high.pack(pady=5)
+
         btn_start = tk.Button(self.root, text="Start Visualizer", command=self.start_visualizer)
         btn_start.pack(pady=20)
         self.visualizer_thread = None
@@ -59,12 +65,22 @@ class music_visualizer_gui:
         if file:
             self.config["audio_file"] = file
             self.lbl_file.config(text=file)
-    #fucntion for choosing a color for the bars in the visualizer
-    def choose_color(self):
+    #function for choosing a color for the bars in the visualizer
+    def choose_color_low(self):
         color = colorchooser.askcolor(title="Choose Bar Color")[1] 
         if color:
-            self.config["bar_color"] = color
-            self.lbl_color.config(bg=color)
+            self.config["bar_color_low"] = color
+            self.lbl_color_low.config(bg=color)
+
+
+    #function for choosing a color for the bars in the visualizer
+    def choose_color_high(self):
+        color = colorchooser.askcolor(title="Choose Bar Color")[1] 
+        if color:
+            self.config["bar_color_high"] = color
+            self.lbl_color_high.config(bg=color)
+    
+    
     #function to start the visualizer
 
     def start_visualizer(self):
