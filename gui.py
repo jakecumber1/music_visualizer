@@ -181,6 +181,10 @@ class music_visualizer_gui:
         if not self.config["audio_file"]:
             self.lbl_status.config(text="Please select an audio file first.", fg="red")
             return
+        if (self.config["show_spectrogram"].get()):
+            self.lbl_status.config(text="Generating spectrogram...", fg="blue")
+        else:
+            self.lbl_status.config(text="Starting visualizer...", fg="blue")
         self.visualizer_thread = threading.Thread(target=self.visualizer_callback, args=(self,), daemon=True)
         self.visualizer_thread.start()
         self.check_visualizer_thread()

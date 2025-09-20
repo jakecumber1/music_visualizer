@@ -15,7 +15,8 @@ import librosa.display
 #Writes spectrogram to file
 def generate_spectrogram(s_db, sr, color_map, output_file, gui_object):
         try:
-            gui_object.lbl_status.config(text="Generating spectrogram...", fg="blue")
+            #we'll just update the status label directly in the gui instead of here
+            #gui_object.lbl_status.config(text="Generating spectrogram...", fg="blue")
             #plot spectrogram and save to disk
             plt.figure(figsize=(10, 6))
             #Creates a spectrogram with a whatever is the selected color map
@@ -62,8 +63,7 @@ def run_visualizer(gui_object):
         if not result:
             #Spectrogram failed, exit so the error message stays up
             return
-
-    gui_object.lbl_status.config(text="Starting visualizer...", fg="blue")
+        gui_object.lbl_status.config(text="Starting visualizer...", fg="blue")
 
     signal = (signal * 32767).astype(np.int16)  # Convert to int16 for pygame
 
