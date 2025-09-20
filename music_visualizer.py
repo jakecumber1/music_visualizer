@@ -5,10 +5,33 @@ import numpy as np
 import sys
 
 import matplotlib
-matplotlib.use('Agg')  # Use a non-interactive backend for matplotlib
+#this is here so matplotlib doesn't mess with tk or pygame.
+#Allows matplotlib to only write to files
+matplotlib.use('Agg')
 #Imports for computing a spectrogram
 import matplotlib.pyplot as plt
 import librosa.display
+
+#Writes spectrogram to file
+def generate_spectrogram(s_db, sr, color_map, output_file, gui_object):
+        try:
+            gui_object.lbl_status.config(text="Generating spectrogram...", fg="blue")
+            #plot spectrogram and save to disk
+            plt.figure(figsize=(10, 6))
+            #Creates a spectrogram with a whatever is the selected color map
+            #Need to reverse the color map so that louder parts are brighter
+            librosa.display.specshow(s_db, sr=sr, x_axis='time', y_axis='log', cmap=color_map)
+            plt.colorbar(format='%+2.0f dB')
+            plt.title(f'{gui_object.config["spec_output_name"].get()} Spectrogram')
+            plt.tight_layout()
+            #Get the name of the file for naming the spectrogram image
+            plt.savefig(output_file)
+            plt.close()
+            gui_object.lbl_status.config(text=f"Spectrogram saved to {output_file}", fg="green")
+            return True
+        except Exception as e:
+            gui_object.lbl_status.config(text=f"Error generating spectrogram: {e}", fg="red")
+            return False
 
 
 def run_visualizer(gui_object):
@@ -22,7 +45,7 @@ def run_visualizer(gui_object):
     SMOOTHING_FACTOR = 0.3
     FPS = 60
     AUDIO_FILE = gui_object.config["audio_file"]
-    OUTPUT_SPECTROGRAM_FILE = "spectrogram.png"
+    OUTPUT_SPECTROGRAM_FILE = f"{gui_object.config['spec_output_name'].get()}_spectrogram.png"
 
     # Load and play audio asynchronously with librosa
     signal, sr = librosa.load(AUDIO_FILE, sr=None, mono=True)
@@ -35,18 +58,12 @@ def run_visualizer(gui_object):
     #Since librosa outputs negative dB values, need to shift them over so the quiestest parts are 0 dB
     s_db = s_db - s_db.min()
     if gui_object.config["show_spectrogram"].get():
-        #plot spectrogram and save to disk
-        plt.figure(figsize=(10, 6))
-        #Creates a spectrogram with a maagma color map
-        #Need to reverse the color map so that louder parts are brighter
-        librosa.display.specshow(s_db, sr=sr, x_axis='time', y_axis='log', cmap=SPECTROGRAM_COLOR)
-        plt.colorbar(format='%+2.0f dB')
-        plt.title('Spectrogram')
-        plt.tight_layout()
-        #Get the name of the file for naming the spectrogram image
-        name = AUDIO_FILE.split('.')[0]
-        plt.savefig(OUTPUT_SPECTROGRAM_FILE)
-        plt.close()
+        result = generate_spectrogram(s_db, sr, SPECTROGRAM_COLOR, OUTPUT_SPECTROGRAM_FILE, gui_object)
+        if not result:
+            #Spectrogram failed, exit so the error message stays up
+            return
+
+    gui_object.lbl_status.config(text="Starting visualizer...", fg="blue")
 
     signal = (signal * 32767).astype(np.int16)  # Convert to int16 for pygame
 
@@ -62,6 +79,8 @@ def run_visualizer(gui_object):
     pg.display.set_caption("Music Visualizer")
     clock = pg.time.Clock()
 
+    #Note there's an error that will be thrown if the audio file is too short, but it doesn't crash the program
+    #And the spectrogram works properly still, so there isn't a reason to refactor for it.
     chunk_size = len(signal) // (NUM_BARS * 1000)
     bar_heights_prev = np.zeros(NUM_BARS)
 
